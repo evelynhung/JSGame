@@ -2,6 +2,7 @@
 <html>
 <head>
     <title></title>
+	<meta charset=utf-8> 
     <script src='https://ajax.googleapis.com/ajax/libs/jquery/1.7.2/jquery.js'></script>
 </head>
 <body>
@@ -14,83 +15,6 @@
 // for translation
 // http://blog.iamjason.com/2010/11/html5-canvas.html
 tm = {};
-tm.ActorQueue = function (){
-    var self = this;
-    self.queue = [];
-    return self;
-}
-tm.ActorQueue.prototype.push = function(actor){
-    this.queue.push(actor);
-}
-tm.ActorQueue.prototype.update = function(actor){
-    this.queue.forEach(function(ele){ele.update()});
-}
-tm.ActorQueue.prototype.draw = function(actorQueue){
-    this.queue.forEach(function(ele){ele.draw()});
-}
-tm.ActorQueue.prototype.detectIntersection = function(thatQueue, autoRemove){
-    autoRemove = autoRemove ? true :autoRemove;
-    var intersections = [];
-    for( var i = 0; i< this.queue.length; ++i){
-        var my_actor = this.queue[i];
-        for( var j = 0 ; j< thatQueue.queue.length; ++j){
-            var that_actor = thatQueue.queue[j];
-            if( my_actor.rect.intersect(that_actor.rect)){
-                intersections.push([my_actor, that_actor]);
-            }
-        }
-    }
-    return intersections;
-}
-tm.Rect = function (x,y, width, height){
-    var self = this;
-    self.x = x;
-    self.y = y;
-    self.vxy = 0;
-    self.width = width;
-    self.height = height;
-    return this;
-}
-tm.Rect.prototype.right = function(right){if(!right){return this.x + this.width;}else{this.x = right - this.width;return this}}
-tm.Rect.prototype.bottom = function(bottom){if(!bottom){return this.y + this.height;}else{this.y = bottom - this.height;return this}}
-tm.Rect.prototype.left = function(left){if(!left){return this.x}else{this.x = left;return this}}
-tm.Rect.prototype.top = function(top){if(!top){return this.y}else{this.y = top;return this}}
-
-tm.Rect.prototype.centerXY = function(cxy){
-    if(!cxy){
-        return {x:(this.left() + this.right())/2, y:(this.bottom() + this.top())/2};
-    }else{
-        this.x = cxy.x - this.width/2;
-        this.y = cxy.y - this.height/2;
-        return this;
-    }
-}
-
-tm.Rect.prototype.speed = function(vxy){
-    if(!vxy){
-        return this.vxy;
-    }else{
-        this.vxy = vxy;
-    }
-}
-
-tm.Rect.prototype.move = function(){
-    var cxy = this.centerXY();
-    cxy.x += this.vxy.x *3;
-    cxy.y += this.vxy.y *3;
-    //console.log(cxy.x + "" + cxy.y);
-    this.centerXY(cxy);
-}
-tm.Rect.prototype.intersect = function(that){
-    var my_cxy  = this.centerXY();
-    var that_cxy = that.centerXY();
-    if( Math.abs(my_cxy.x - that_cxy.x) < Math.max( this.width, that.width) &&
-        Math.abs(my_cxy.y - that_cxy.y) < Math.max( this.height, that.height)){
-        return true;
-    }
-    return false;
-}
-
 tm.draw = {}
 
 tm.draw.fill = function(context, w, h, style){
@@ -129,6 +53,7 @@ function fill_vec(event){
         event.vec = {y:0, x:event.code - tm.event.keyUp};
     }
 }
+
 $(document).keydown(function(e){
     if((e.keyCode >= tm.event.keyLeft && e.keyCode <= tm.event.keyDown) ||
 	   (e.keyCode == tm.event.space) ){
@@ -139,6 +64,7 @@ $(document).keydown(function(e){
         tm.event.queue.push(event);
     }
 });
+
 $(document).keyup(function(e){
     if((e.keyCode >= tm.event.keyLeft && e.keyCode <= tm.event.keyDown) ||
 	   (e.keyCode == tm.event.space) ){
@@ -150,158 +76,54 @@ $(document).keyup(function(e){
     }
 });
 
-function Hero(context, rect, character, font, fontColor){
-    var self = this;
-    self.context = context;
-    self.rect = rect;
-    self.character = character;
-    self.font = font;
-    self.fontColor = fontColor;
-	self.status = tm.status.alive;
-    self.draw = function(){
-		if (self.status == tm.status.alive) {
-			self.aliveDraw();
-		}
-
-		if (self.status == tm.status.bump) {
-			self.bumpDraw();
-		}
-    }
-	self.setStatus = function(myStatus) {
-		self.status = myStatus;
-	}
-    self.setFont = function(font){
-        self.font = font;
-    }
-    self.weapon = new tm.ActorQueue();
-
-	self.aliveDraw = function() {
-        self.context.save();
-        self.context.translate(self.rect.x, self.rect.y);
-        self.context.font = self.font;
-        self.context.fillStyle = self.fontColor;
-        self.context.fillText(self.character, 0, 0);
-        self.context.restore();
-	}
-	self.bumpDraw = function() {
-		
-	}
-    self.accept_keyboard = function(event){
-        if(event.type === tm.event.release){
-			if (event.code == tm.event.space) {
-				return;
-			}
-            fill_vec(event)
-
-            var speed = self.rect.speed();
-            var new_speed = { x: speed.x ^ event.vec.x, y: speed.y ^ event.vec.y };
-            self.rect.speed(new_speed);
-            return;
-        }
-        if(event.type === tm.event.down){
-			if (event.code == tm.event.space) {
-				self.weapon.push(self.create_weapon());
-				return;
-			}
-
-            fill_vec(event)
-
-            var speed = self.rect.speed();
-            var new_speed = { x: speed.x | event.vec.x, y: speed.y | event.vec.y };
-            self.rect.speed(new_speed);
-            return;
-        }
-    }
-
-	self.create_weapon = function() {
-	    var rect = new tm.Rect(self.rect.centerXY().x,self.rect.centerXY().y,10,30);
-    	rect.speed({x:1, y:0});
-    	var myWeapon = new Weapon(self.context, rect,"喵", "20pt Calibri", "#FC8");
-		return myWeapon;
-	}
-    return self;
-}
-
-
-function Weapon(context, rect, character, font, fontColor){
-    var self = this;
-    self.context = context;
-    self.rect = rect;
-    self.character = character;
-    self.font = font;
-    self.fontColor = fontColor;
-	self.direction = { x: 1, y: 0 };
-	//self.alive = 10; // how long the weapon is kept on screen
-	self.status = tm.status.alive;
-    self.draw = function(){
-		if (self.status == tm.status.alive) {
-			self.aliveDraw();
-		}
-
-		if (self.status == tm.status.bump) {
-			self.bumpDraw();
-		}
-		if (self.status == tm.status.die) {
-			
-		}
-    }
-    self.aliveDraw = function() {
-        self.context.save();
-
-		var speed = self.rect.speed();
-		var new_speed = { x: speed.x | self.direction.x, y: speed.y | self.direction.y };
-		self.rect.speed(new_speed);
-		self.rect.move();
-
-        self.context.translate(self.rect.x, self.rect.y);
-        self.context.font = self.font;
-        self.context.fillStyle = self.fontColor;
-        self.context.fillText(self.character, 0, 0);
-        self.context.restore();
-    }
-	self.alpha = 1.0;
-	self.bumpDraw = function() {
-        self.context.save();
-
-        self.context.translate(self.rect.x, self.rect.y);
-        self.context.font = self.font;
-		self.context.fillStyle = "rgba(255, 0, 0, " + self.alpha + ")";
-        self.context.fillText("掰", 0, 0);
-        self.context.restore();
-
-		self.alpha = self.alpha - 0.05;
-		if (self.alpha == 0) {
-			self.status = tm.status.die;
-		}
-	}
-	self.setStatus = function(myStatus) {
-		self.status = myStatus;
-	}
-    self.setFont = function(font){
-        self.font = font;
-    }
-
-    return self;
-}
 
 $(document).ready(function(){
-    //var canvas = document.getElementById('#myCanvas');
-    //var context = canvas.getContext("2d");
-    enemyQueue =  new tm.ActorQueue();
-    heroQueue = new tm.ActorQueue();
+    enemyQueue =  ObjectQueue();
+    heroQueue = ObjectQueue();
+
     var canvas = document.getElementById('myCanvas');
-    //console.log(canvas);
     context = canvas.getContext('2d');
-    rect = new tm.Rect(10,10,100,40);
-    rect.speed({x:0,y:0});
-    hero = new Hero(context, rect,"司馬姨", "30pt Calibri", "#F0F");
 
-    enemy_rect = new tm.Rect(710,710,40,40);
-    enemy = new Enemy(context, enemy_rect,"張飛", "50pt Calibri", "#39C");
+    hero = Hero(context, {
+			name: "司馬姨",
+			font: "Calibri", 
+			font_size: 50,
+			font_color: "#F0F",
+			x: 10,
+			y: 10,
+			speed: {x:0,y:0}
+	});
 
+    enemy = Enemy(context, {
+			name: "張飛", 
+			font: "Calibri", 
+			font_size: 40,
+			font_color: "#39C",
+			x: 710,
+			y: 710,
+			speed: {x:0,y:0}
+	});
+	
+	enemy2 = Enemy(context, {
+			name: "肥肥", 
+			font: "Calibri", 
+			font_size: 50, 
+			font_color: "#FF0",
+			x: 610,
+			y: 110,
+			speed: {x:0,y:0}
+	});
 
-    enemy2 = new Enemy(context, new tm.Rect(610,110,50,40),"肥肥", "45pt Calibri", "#FF0");
-    enemy3 = new Enemy(context, new tm.Rect(910,410,50,50),"趙雲", "45pt Calibri", "#FF0");
+	enemy3 = Enemy(context, {
+			name: "趙雲", 
+			font: "Calibri", 
+			font_size: 45, 
+			font_color: "#3C9",
+			x: 910,
+			y: 410,
+			speed: {x:0,y:0}
+	});
+
     enemy.setHero(hero);
     enemy2.setHero(hero);
     enemy3.setHero(hero);
@@ -310,41 +132,40 @@ $(document).ready(function(){
     enemyQueue.push(enemy2);
     enemyQueue.push(enemy3);
 
-
     heroQueue.push(hero);
-    var drawing_function = function(){
-        var beginTimeStamp = Date.now();
+    var drawing_function = function() {
         if( tm.event.queue.length > 0 ){
             var event = tm.event.queue.shift();
-
 	        hero.accept_keyboard(event);
 
         }
-        rect.move();
+        hero.update();
+        hero.weapon_queue.update();
         enemyQueue.update();
 
         tm.draw.fill(context, 800,600, '#000');
-        hero.draw();
 
         var intersections = heroQueue.detectIntersection(enemyQueue,false);
-        if(intersections.length !=0){
-            console.log('dead!!');
+        if(intersections.length != 0){
+            //console.log('dead!!');
         }
-        intersections = hero.weapon.detectIntersection(enemyQueue,false);
+
+        intersections = hero.weapon_queue.detectIntersection(enemyQueue,false);
         if(intersections.length !=0){
             for (var i=0; i<intersections.length; ++i) {
-					console.log(intersections[i][0]);
-					console.log(intersections[i][1]);
-                if(intersections[i][0].status == tm.status.alive){
-				    intersections[i][0].status = tm.status.bump;
+//					console.log(intersections[i][0]);
+//					console.log(intersections[i][1]);
+                if(intersections[i][0].status() == tm.status.alive){
+				    intersections[i][0].status(tm.status.bump);
                 }
-                if(intersections[i][1].status == tm.status.alive){
+                if(intersections[i][1].status() == tm.status.alive){
 
-                    intersections[i][1].status = tm.status.bump;
+                    intersections[i][1].status(tm.status.bump);
                 }
 			}
         }
-		hero.weapon.draw();
+        hero.draw();
+		hero.weapon_queue.draw();
         enemyQueue.draw();
 
         setTimeout(drawing_function, 30);
@@ -352,10 +173,14 @@ $(document).ready(function(){
     };
     drawing_function();
 
-
 });
 
+
 </script>
-<script type='text/javascript' src="enemys.js"></script>
+<script type='text/javascript' src="rectangle.js"></script>
+<script type='text/javascript' src="role.js"></script>
+<script type='text/javascript' src="weapon.js"></script>
+<script type='text/javascript' src="enemy.js"></script>
+<script type='text/javascript' src="ObjectQueue.js"></script>
 </body>
 </html>
